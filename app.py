@@ -1,19 +1,15 @@
 import os
 import streamlit as st
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 
-# पेज कॉन्फ़िगरेशन
+# पेज सेटअप
 st.set_page_config(page_title="HomeoGuide AI", page_icon="🌿", layout="centered")
 
 st.title("🌿 HomeoGuide AI - होम्योपैथिक लक्षण गाइड")
 st.write("अपनी परेशानी और लक्षण नीचे विस्तार से लिखें:")
 
 # Streamlit Secrets या Environment से API Key लोड करना
-if "GEMINI_API_KEY" in st.secrets:
-    API_KEY = st.secrets["GEMINI_API_KEY"]
-else:
-    API_KEY = os.environ.get("GEMINI_API_KEY", "")
+API_KEY = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
 
 # यूजर इनपुट बॉक्स
 complaint = st.text_area(
@@ -31,7 +27,7 @@ if st.button("दवा का सुझाव देखें 🔍", use_contai
     else:
         with st.spinner("AI लक्षणों का विश्लेषण कर रहा है..."):
             try:
-                client = genai.Client(api_key=API_KEY)
+                genai.configure(api_key=API_KEY)
 
                 prompt = f"""
                 You are an expert Homeopathic consultant based strictly on Boericke and Kent Materia Medica.
@@ -44,27 +40,16 @@ if st.button("दवा का सुझाव देखें 🔍", use_contai
                 4. Clear medical safety advice.
                 """
 
-                # बैकअप मॉडल्स: अगर एक पर लोड हो तो दूसरा अपने आप काम करेगा
-                models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
-                response = None
+                # स्थिर मॉडल
+                model = genai.GenerativeModel("gemini-1.5-flash")
+                response = model.generate_content(prompt)
 
-                for model_name in models_to_try:
-                    try:
-                        response = client.models.generate_content(
-                            model=model_name,
-                            contents=prompt
-                        )
-                        if response:
-                            break
-                    except Exception:
-                        continue
-
-                if response:
+                if response and response.text:
                     st.success("विश्लेषण पूरा हुआ!")
                     st.markdown(response.text)
                     st.warning("⚠️ **महत्वपूर्ण सूचना:** यह जानकारी केवल शैक्षणिक और संदर्भ के उद्देश्य से है। किसी भी होम्योपैथिक दवा के सेवन से पहले किसी योग्य रजिस्टर्ड चिकित्सक (BHMS/MD) से परामर्श अवश्य लें।")
                 else:
-                    st.error("सर्वर पर अभी लोड ज्यादा है, कृपया 1 मिनट बाद पुनः प्रयास करें।")
+                    st.error("सर्वर से कोई उत्तर नहीं मिला, कृपया पुनः प्रयास करें।")
 
             except Exception as e:
                 st.error(f"त्रुटि आई: {e}")
